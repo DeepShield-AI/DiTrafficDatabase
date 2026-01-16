@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: reader
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: reader
+  template:
+    metadata:
+      labels:
+        app: reader
+    spec:
+      # 1️⃣ 不在 master 节点运行
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+              - key: node-role.kubernetes.io/master
+                operator: DoesNotExist
+
+      # 2️⃣ 使用宿主机网络（抓真实 NIC）
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+
+      containers:
+      - name: traffic-reader
+        image: crpi-eznd6trr9hw3vfgt.cn-beijing.personal.cr.aliyuncs.com/ericxiaozj/traffic-reader:1.0
+        imagePullPolicy: IfNotPresent
+
+        securityContext:
+          privileged: true
+
+        args:
+          - "--input"
+          - "ens192"
+          - "--output"
+          - "/data/test.pcap"
+
+        volumeMounts:
+          - name: data
+            mountPath: /data
+
+      volumes:
+        - name: data
+          hostPath:
+            path: /home/xzj/data
+            type: DirectoryOrCreate

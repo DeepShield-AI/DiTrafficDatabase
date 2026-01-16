@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: controller
+  template:
+    metadata:
+      labels:
+        app: controller
+    spec:
+      # 1️⃣ 只在 master / control-plane 节点运行
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
+
+      # 2️⃣ master 默认有 taint，需要容忍
+      tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
+
+      containers:
+      - name: traffic-controller
+        image: crpi-eznd6trr9hw3vfgt.cn-beijing.personal.cr.aliyuncs.com/ericxiaozj/traffic-controller:1.0
+        imagePullPolicy: IfNotPresent
+
+        ports:
+          - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: controller
+  namespace: default
+spec:
+  selector:
+    app: controller
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080

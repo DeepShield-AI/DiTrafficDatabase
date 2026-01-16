@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package demo;
+
+message Empty {}
+
+message WorkResponse {
+  string message = 1;
+}
+
+service Indexer {
+  rpc DoWork(Empty) returns (WorkResponse);
+}

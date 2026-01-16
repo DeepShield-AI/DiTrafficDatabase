@@ -1,0 +1,28 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 1. 安装构建 & 运行依赖
+RUN apt-get update && \
+    apt-get install -y \
+        build-essential \
+        ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# 2. 拷贝整个项目源码（为了 Makefile 能正确引用 ../lib）
+WORKDIR /workspace
+COPY . .
+
+# 3. 在 IndexNode 目录中编译
+WORKDIR /workspace/src/IndexNode
+RUN make clean
+RUN make -j$(nproc)
+
+# 4. 将编译好的 indexer 放入 PATH
+RUN install -m 755 /workspace/build/indexNode/indexer /usr/local/bin/indexer
+
+# 5. 运行时工作目录（挂载数据用）
+WORKDIR /data
+
+# 6. indexer 直接作为入口，参数由 docker/k8s 传入
+ENTRYPOINT ["/usr/local/bin/indexer"]

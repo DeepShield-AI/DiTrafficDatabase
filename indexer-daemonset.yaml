@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: indexer
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: indexer
+  template:
+    metadata:
+      labels:
+        app: indexer
+    spec:
+      # 1️⃣ 不在 master 节点运行
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+              - key: node-role.kubernetes.io/master
+                operator: DoesNotExist
+
+      containers:
+      - name: traffic-indexer
+        image: crpi-eznd6trr9hw3vfgt.cn-beijing.personal.cr.aliyuncs.com/ericxiaozj/traffic-indexer:1.1
+        imagePullPolicy: IfNotPresent
+
+        env:
+          # Controller 地址（非常关键）
+          - name: CONTROLLER_HOST
+            value: "controller"
+          - name: CONTROLLER_PORT
+            value: "8080"
+
+          # 用 Pod 名作为 node_id（推荐）
+          - name: NODE_ID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+
+        args:
+          - "--domain"
+          - "$(CONTROLLER_HOST)"
+          - "--dstport"
+          - "$(CONTROLLER_PORT)"
+          - "--nodeid"
+          - "$(NODE_ID)"
+          - "--interval"
+          - "5"
