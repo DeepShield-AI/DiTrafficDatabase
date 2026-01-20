@@ -1,7 +1,7 @@
 #pragma once
 #include "dataNodeLib/dataNodeComponent.hpp"
 
-class MitoEngine: public DataNodeComponent{
+class RegionWorker: public DataNodeComponent{
 private:
     /* data */
 public:
