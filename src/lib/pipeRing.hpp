@@ -8,7 +8,7 @@
 // write Not covered, read covered
 class PipeRing{
 private:
-    const u_int32_t capacity_;
+    const u_int64_t capacity_;
     alignas(CACHE_LINE_LEN) std::atomic_uint_fast64_t writePos;
     char writepadding[CACHE_LINE_LEN - sizeof(uint64_t)];
     alignas(CACHE_LINE_LEN) std::atomic_uint_fast64_t readPos;

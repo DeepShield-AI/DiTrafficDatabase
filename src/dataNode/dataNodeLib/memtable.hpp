@@ -5,9 +5,15 @@
 #include <unordered_map>
 
 using Value = std::variant<u_int64_t, int64_t, double, std::string>;
+enum class ColumnType{
+    INT64, 
+    UINT64, 
+    DOUBLE, 
+    STRING 
+};
 
 struct Column{
-    enum Type { INT64, UINT64, DOUBLE, STRING } type;
+    ColumnType type;
     std::vector<Value> data;
     void append(Value val){
         if (val.index() != static_cast<size_t>(type)){
@@ -20,7 +26,7 @@ struct Column{
 struct ColumnarSeries{
     std::vector<u_int64_t> timestamps;
     std::unordered_map<std::string, Column> columns;
-    ColumnarSeries(std::unordered_map<std::string, Column::Type>& col_names){
+    ColumnarSeries(std::unordered_map<std::string, ColumnType>& col_names){
         this->columns = std::unordered_map<std::string, Column>();
         for (const auto& [name, type] : col_names){
             this->columns[name] = Column{type, std::vector<Value>()};
@@ -101,41 +107,61 @@ struct KeySeriesHash {
     }
 };
 
+struct Row{
+    u_int64_t timestamp;
+    std::vector<Value> data;
+};
+
 class Memtable{
 private:
     u_int64_t current_capacity;
-    std::unordered_map<KeySeries, ColumnarSeries, KeySeriesHash> table;
-    std::unordered_map<std::string, Column::Type> column_names;
+    std::vector<Row> table;
+    // std::unordered_map<KeySeries, ColumnarSeries, KeySeriesHash> table;
+    std::unordered_map<std::string, ColumnType> column_names;
     u_int64_t column_name_size;
+    bool mut;
+    u_int64_t var_data_size;
 public:
-    Memtable(std::unordered_map<std::string, Column::Type> column_names){
-        this->table = std::unordered_map<KeySeries, ColumnarSeries, KeySeriesHash>();
+    Memtable(std::unordered_map<std::string, ColumnType> column_names){
+        this->table = std::vector<Row>();
         this->column_names = column_names;
+        this->column_name_size = 0;
+        this->var_data_size = 0;
         for (const auto& [name, _] : column_names){
-            this->column_name_size += name.size() + sizeof(Column::Type);
+            this->column_name_size += name.size();
         }
         this->current_capacity = this->column_name_size;
+        this->current_capacity += sizeof(ColumnType) * column_names.size();
+        this->mut = true;
     }
     ~Memtable() = default;
-    void write(const KeySeries& key, int64_t ts, const std::unordered_map<std::string, Value>& fields) {
-        if (this->table.find(key) == this->table.end()){
-            this->table[key] = ColumnarSeries(this->column_names);
-            this->current_capacity += key.capacity() + this->column_name_size;
+    void write(const KeySeries& key, u_int64_t ts, const std::unordered_map<std::string, Value>& fields) {
+        if (!this->mut){
+            throw std::runtime_error("Memtable is frozen and cannot be modified");
         }
-        try {
-            this->table[key].insert(ts, fields);
-            this->current_capacity += this->calculateRowSize(fields);
-        } catch (const std::invalid_argument& e){
-            throw e;
+        Row row = {ts, std::vector<Value>()};
+        for (const auto& [col_name, _] : this->column_names){
+            if (fields.find(col_name) == fields.end()){
+                throw std::invalid_argument("Missing column in fields: " + col_name);
+            }
+            row.data.push_back(fields.at(col_name));
         }
+        this->table.push_back(row);
+        addRowSize(fields);
     }
-    u_int64_t capicity()const {
+    u_int64_t capacity()const {
         return this->current_capacity;
     }
-    u_int64_t calculateRowSize(const std::unordered_map<std::string, Value>& fields)const {
+    u_int64_t varCapacity()const {
+        return this->var_data_size;
+    }
+    u_int64_t columnNameSize()const {
+        return this->column_name_size;
+    }
+    void addRowSize(const std::unordered_map<std::string, Value>& fields) {
         u_int64_t row_size = sizeof(u_int64_t); // timestamp size
+        u_int64_t var_row_size = 0;
         for (const auto& [col_name, val] : fields){
-            row_size += col_name.size();
             if (std::holds_alternative<u_int64_t>(val)) {
                 row_size += sizeof(u_int64_t);
             } else if (std::holds_alternative<int64_t>(val)) {
@@ -144,8 +170,19 @@ public:
                 row_size += sizeof(double);
             } else if (std::holds_alternative<std::string>(val)) {
                 row_size += std::get<std::string>(val).size();
+                var_row_size += std::get<std::string>(val).size();
             }
         }
-        return row_size;
+        this->current_capacity += row_size;
+        this->var_data_size += var_row_size;
+    }
+    void freeze(){
+        this->mut = false;
+    }
+    const std::vector<Row>& getTable() const {
+        return this->table;
+    }
+    const std::unordered_map<std::string, ColumnType>& getColumnNames() const{
+        return this->column_names;
     }
 };

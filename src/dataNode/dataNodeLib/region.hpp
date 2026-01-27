@@ -7,9 +7,36 @@ private:
     u_int64_t regionID;
     std::string regionName;
     std::string partition_expr;
-    Memtable* current_memtable;
-    SST* current_sst;
+    std::shared_ptr<Memtable> current_memtable;
+    std::shared_ptr<SST> current_sst;
 public:
-    Region(/* args */);
-    ~Region();
+    Region(u_int64_t regionID, std::string regionName, std::string partition_expr){
+        this->regionID = regionID;
+        this->regionName = regionName;
+        this->partition_expr = partition_expr;
+        this->current_memtable = nullptr;
+        this->current_sst = nullptr;
+    }
+    ~Region()=default;
+    u_int64_t getRegionID() const{
+        return this->regionID;
+    }
+    std::string getRegionName() const{
+        return this->regionName;
+    }
+    std::string getPartitionExpr() const{
+        return this->partition_expr;
+    }
+    void setMemtable(std::shared_ptr<Memtable> memtable){
+        this->current_memtable = memtable;
+    }
+    std::shared_ptr<Memtable> getMemtable() const{
+        return this->current_memtable;
+    }
+    void setSST(std::shared_ptr<SST> sst){
+        this->current_sst = sst;
+    }
+    std::shared_ptr<SST> getSST() const{
+        return this->current_sst;
+    }
 };
