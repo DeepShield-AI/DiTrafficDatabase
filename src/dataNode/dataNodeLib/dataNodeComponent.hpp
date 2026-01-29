@@ -8,19 +8,22 @@
 #include "region.hpp"
 
 struct DataNodeContext{
-    PipeRing* egineWorkerPipe;
+    PipeRing* serverEnginePipe;
     PipeRing* workerFlusherPipe;
+    u_int64_t workerCount;
+    PipeRing** engineWorkerPipes;
 };
 
 class DataNodeComponent {
 private:
     std::string componentType;
     std::string componentName;
+    u_int64_t componentID;
     std::atomic_bool running;
     std::string logPath;
     std::ofstream logFile;
 public:
-    DataNodeComponent(const std::string& type,const std::string& name, const std::string& logPath) : componentType(type), componentName(name), logPath(logPath), running(false){
+    DataNodeComponent(const std::string& type,const std::string& name, const std::string& logPath, const u_int64_t id) : componentType(type), componentName(name),componentID(id), logPath(logPath), running(false){
         this->logFile.open(this->logPath + "/" + this->componentType + "_log.txt", std::ios::app);
         if(!this->logFile.is_open()){
             throw std::runtime_error("Failed to open " + this->componentName + " log file");
@@ -45,11 +48,14 @@ public:
     std::string name() const{
         return this->componentName;
     }
+    u_int64_t id() const{
+        return this->componentID;
+    }
     bool isRunning() const{
         return this->running.load();
     }
     void log(const std::string& message){
-        std::string log_message = "[" + this->componentName + "] " + message;
+        std::string log_message = "[" + this->componentName + std::to_string(this->componentID) + "] " + message;
         if(this->logFile.is_open()){
             this->logFile << log_message << std::endl;
         }

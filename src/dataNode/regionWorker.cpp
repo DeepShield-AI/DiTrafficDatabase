@@ -1,17 +1,17 @@
 #include "regionWorker.hpp"
 
-RegionWorker::RegionWorker(const std::string& name, const std::string& logPath):DataNodeComponent("RegionWorker", name, logPath){
+RegionWorker::RegionWorker(const std::string& name, const std::string& logPath, const u_int64_t id):DataNodeComponent("RegionWorker", name, logPath, id){
     this->regions = std::unordered_map<u_int64_t, std::unique_ptr<Region>>();
     this->enginePipe = nullptr;
     this->flusherPipe = nullptr;
 }
 
-WorkSiganal* RegionWorker::getSignal(){
+WorkSignal* RegionWorker::getSignal(){
     void* data = this->enginePipe->get();
     if(data == nullptr){
         return nullptr;
     }
-    WorkSiganal* signal = (WorkSiganal*)data;
+    WorkSignal* signal = (WorkSignal*)data;
     this->log("Received send signal for region " + std::to_string(signal->regionID));
     return signal;
 }
@@ -52,7 +52,6 @@ void RegionWorker::handleWrite(WriteRequest& request, u_int64_t regionID, u_int6
 }
 
 void RegionWorker::handleStatus(RegionAdminRequest& request, u_int64_t regionID, u_int64_t requestID){
-    
     if(request.op == RegionOperation::CREATE){
         if (this->regions.find(regionID) != this->regions.end() && this->closedRegions.find(regionID) != this->closedRegions.end()){
             this->log("[Request " + std::to_string(requestID) + "]Region " + std::to_string(regionID) + " already exists.");
@@ -160,7 +159,7 @@ void RegionWorker::sendFlushSignal(u_int64_t regionID){
     this->log("Sent flush signal for region " + std::to_string(regionID));
 }
 
-void RegionWorker::handleSignal(WorkSiganal* signal){
+void RegionWorker::handleSignal(WorkSignal* signal){
     u_int64_t regionID = signal->regionID;
     Request& request = signal->request;
     auto region = this->regions.find(regionID);
@@ -203,7 +202,7 @@ void RegionWorker::handleSignal(WorkSiganal* signal){
 }
 
 void RegionWorker::init(DataNodeContext& cfg){
-    this->enginePipe = cfg.egineWorkerPipe;
+    this->enginePipe = cfg.engineWorkerPipes[this->id()];
     this->flusherPipe = cfg.workerFlusherPipe;
     // this->memTableUsageThreshold = cfg.memTableUsageThreshold;
 }
@@ -211,7 +210,7 @@ void RegionWorker::init(DataNodeContext& cfg){
 void RegionWorker::run(){
     this->start();
     while(this->isRunning()){
-        WorkSiganal* signal = this->getSignal();
+        WorkSignal* signal = this->getSignal();
         if(signal == nullptr){
             continue;
         }

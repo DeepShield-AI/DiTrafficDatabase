@@ -16,14 +16,14 @@ private:
     std::unordered_map<u_int64_t, std::unique_ptr<Region>> catchupRegions;
     std::unordered_map<u_int64_t, std::unique_ptr<Region>> dropingRegions;
 
-    WorkSiganal* getSignal();
+    WorkSignal* getSignal();
     void handleWrite(WriteRequest& request, u_int64_t regionID, u_int64_t requestID);
     void handleStatus(RegionAdminRequest& request, u_int64_t regionID, u_int64_t requestID);
     u_int64_t checkRegionMemUsage(u_int64_t regionID);
     void sendFlushSignal(u_int64_t regionID);
-    void handleSignal(WorkSiganal* signal);
+    void handleSignal(WorkSignal* signal);
 public:
-    RegionWorker(const std::string& name, const std::string& logPath);
+    RegionWorker(const std::string& name, const std::string& logPath, const u_int64_t id);
     ~RegionWorker() = default;
     void init(DataNodeContext& cfg) override;
     void run() override;

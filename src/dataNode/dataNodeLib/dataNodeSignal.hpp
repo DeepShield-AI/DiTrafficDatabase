@@ -2,7 +2,12 @@
 #include "dataNodeComponent.hpp"
 #include "request.hpp"
 
-struct WorkSiganal{
+struct MitoSignal{
+    u_int64_t regionID;
+    Request request;
+};
+
+struct WorkSignal{
     u_int64_t regionID;
     Request request;
 };

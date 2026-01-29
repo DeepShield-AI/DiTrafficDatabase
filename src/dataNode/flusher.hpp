@@ -10,7 +10,7 @@ private:
     FlushSignal* getSignal();
     void handleFlush(FlushSignal* signal);
 public:
-    Flusher(const std::string& name, const std::string& logPath);
+    Flusher(const std::string& name, const std::string& logPath, const u_int64_t id);
     ~Flusher() = default;
     void init(DataNodeContext& cfg) override;
     void run() override;

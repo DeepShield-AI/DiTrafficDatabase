@@ -1,6 +1,6 @@
 #include "flusher.hpp"
 
-Flusher::Flusher(const std::string& name, const std::string& logPath):DataNodeComponent("Flusher", name, logPath){
+Flusher::Flusher(const std::string& name, const std::string& logPath, const u_int64_t id):DataNodeComponent("Flusher", name, logPath, id){
     this->workerPipe = nullptr;
 }
 
