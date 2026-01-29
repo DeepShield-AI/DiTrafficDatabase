@@ -183,21 +183,16 @@ void RegionWorker::handleSignal(WorkSignal* signal){
         delete signal;
         return;
     }
-    switch(request.type){
-        case RequestType::WRITE:
-            WriteRequest writeRequest = std::get<WriteRequest>(request.payload);
-            this->handleWrite(writeRequest, regionID, request.header.request_id);
-            break;
-        case RequestType::QUERY:
-            this->log("[Request " + std::to_string(request.header.request_id) + "]Query request handling not implemented yet for region " + std::to_string(regionID));
-            break;
-        case RequestType::REGION_ADMIN:
-            RegionAdminRequest adminRequest = std::get<RegionAdminRequest>(request.payload);
-            this->handleStatus(adminRequest, regionID, request.header.request_id);
-            break;
-        default:
-            this->log("[Request " + std::to_string(request.header.request_id) + "]Unknown request type for region " + std::to_string(regionID));
-            break;
+    if(request.type == RequestType::WRITE){
+        WriteRequest writeRequest = std::get<WriteRequest>(request.payload);
+        this->handleWrite(writeRequest, regionID, request.header.request_id);
+    } else if (request.type == RequestType::QUERY){
+        this->log("[Request " + std::to_string(request.header.request_id) + "]Query request handling not implemented yet for region " + std::to_string(regionID));
+    } else if (request.type == RequestType::REGION_ADMIN){
+        RegionAdminRequest adminRequest = std::get<RegionAdminRequest>(request.payload);
+        this->handleStatus(adminRequest, regionID, request.header.request_id);
+    } else {
+        this->log("[Request " + std::to_string(request.header.request_id) + "]Unknown request type for region " + std::to_string(regionID));
     }
 }
 

@@ -18,7 +18,11 @@ enum class RegionOperation{
 struct WriteRequest {
     u_int64_t timestamp;
     const void* jsonData;
+    // std::unique_ptr<const u_int8_t[]> jsonData;
     u_int64_t jsonSize;
+    ~WriteRequest(){
+        delete[] (char*)jsonData;
+    }
 };
 
 struct RegionAdminRequest {
@@ -33,6 +37,7 @@ struct RegionAdminRequest {
             const void* attrs_json;
             u_int64_t attrs_json_size;
         } create;
+        // unused now
         struct {
             bool force;
         } open;
@@ -43,6 +48,17 @@ struct RegionAdminRequest {
             bool keep_files;
         } drop;
     };
+    ~RegionAdminRequest(){
+        switch(op){
+            case RegionOperation::CREATE:
+                delete[] (char*)create.name;
+                delete[] (char*)create.partition_expr;
+                delete[] (char*)create.attrs_json;
+                break;
+            default:
+                break;
+        }
+    }
 };
 
 struct RequestHeader {
