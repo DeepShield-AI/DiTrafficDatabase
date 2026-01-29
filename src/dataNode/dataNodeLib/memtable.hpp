@@ -3,6 +3,7 @@
 #include <variant>
 #include <vector>
 #include <unordered_map>
+#include <limits>
 
 using Value = std::variant<u_int64_t, int64_t, double, std::string>;
 enum class ColumnType{
@@ -112,6 +113,11 @@ struct Row{
     std::vector<Value> data;
 };
 
+struct RowSize{
+    u_int64_t fixed_size;
+    u_int64_t var_size;
+};
+
 class Memtable{
 private:
     u_int64_t current_capacity;
@@ -121,6 +127,9 @@ private:
     u_int64_t column_name_size;
     bool mut;
     u_int64_t var_data_size;
+    u_int64_t min_time;
+    u_int64_t max_time;
+    u_int64_t row_count;
 public:
     Memtable(std::unordered_map<std::string, ColumnType> column_names){
         this->table = std::vector<Row>();
@@ -133,6 +142,8 @@ public:
         this->current_capacity = this->column_name_size;
         this->current_capacity += sizeof(ColumnType) * column_names.size();
         this->mut = true;
+        this->min_time = std::numeric_limits<u_int64_t>::max();
+        this->max_time = 0;
     }
     ~Memtable() = default;
     void write(const KeySeries& key, u_int64_t ts, const std::unordered_map<std::string, Value>& fields) {
@@ -140,6 +151,8 @@ public:
             throw std::runtime_error("Memtable is frozen and cannot be modified");
         }
         Row row = {ts, std::vector<Value>()};
+        this->min_time = std::min(this->min_time, ts);
+        this->max_time = std::max(this->max_time, ts);
         for (const auto& [col_name, _] : this->column_names){
             if (fields.find(col_name) == fields.end()){
                 throw std::invalid_argument("Missing column in fields: " + col_name);
@@ -147,7 +160,23 @@ public:
             row.data.push_back(fields.at(col_name));
         }
         this->table.push_back(row);
-        addRowSize(fields);
+        this->row_count ++;
+    }
+    void write(u_int64_t ts, const std::unordered_map<std::string, Value>& fields) {
+        if (!this->mut){
+            throw std::runtime_error("Memtable is frozen and cannot be modified");
+        }
+        Row row = {ts, std::vector<Value>()};
+        this->min_time = std::min(this->min_time, ts);
+        this->max_time = std::max(this->max_time, ts);
+        for (const auto& [col_name, _] : this->column_names){
+            if (fields.find(col_name) == fields.end()){
+                throw std::invalid_argument("Missing column in fields: " + col_name);
+            }
+            row.data.push_back(fields.at(col_name));
+        }
+        this->table.push_back(row);
+        this->row_count ++;
     }
     u_int64_t capacity()const {
         return this->current_capacity;
@@ -158,23 +187,27 @@ public:
     u_int64_t columnNameSize()const {
         return this->column_name_size;
     }
-    void addRowSize(const std::unordered_map<std::string, Value>& fields) {
-        u_int64_t row_size = sizeof(u_int64_t); // timestamp size
-        u_int64_t var_row_size = 0;
+    RowSize calRowSize(const std::unordered_map<std::string, Value>& fields) const {
+        RowSize size = {
+            .fixed_size = sizeof(u_int64_t), // timestamp size
+            .var_size = 0,
+        };
         for (const auto& [col_name, val] : fields){
             if (std::holds_alternative<u_int64_t>(val)) {
-                row_size += sizeof(u_int64_t);
+                size.fixed_size += sizeof(u_int64_t);
             } else if (std::holds_alternative<int64_t>(val)) {
-                row_size += sizeof(int64_t);
+                size.fixed_size += sizeof(int64_t);
             } else if (std::holds_alternative<double>(val)) {
-                row_size += sizeof(double);
+                size.fixed_size += sizeof(double);
             } else if (std::holds_alternative<std::string>(val)) {
-                row_size += std::get<std::string>(val).size();
-                var_row_size += std::get<std::string>(val).size();
+                size.var_size += std::get<std::string>(val).size();
             }
         }
-        this->current_capacity += row_size;
-        this->var_data_size += var_row_size;
+        return size;
+    }
+    void addRowSize(RowSize size) {
+        this->current_capacity += size.fixed_size;
+        this->var_data_size += size.var_size;
     }
     void freeze(){
         this->mut = false;
@@ -184,5 +217,14 @@ public:
     }
     const std::unordered_map<std::string, ColumnType>& getColumnNames() const{
         return this->column_names;
+    }
+    u_int64_t getMinTime() const {
+        return this->min_time;
+    }
+    u_int64_t getMaxTime() const {
+        return this->max_time;
+    }
+    u_int64_t getRowCount() const {
+        return this->row_count;
     }
 };

@@ -8,6 +8,7 @@
 #include "region.hpp"
 
 struct DataNodeContext{
+    PipeRing* egineWorkerPipe;
     PipeRing* workerFlusherPipe;
 };
 

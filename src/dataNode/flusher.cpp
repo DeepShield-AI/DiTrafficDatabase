@@ -27,6 +27,7 @@ void Flusher::handleFlush(FlushSignal* signal){
 
 void Flusher::init(DataNodeContext& cfg){
     this->workerPipe = cfg.workerFlusherPipe;
+    // this->sst = cfg.sst;
 }
 
 void Flusher::run(){

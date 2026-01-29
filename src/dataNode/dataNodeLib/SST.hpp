@@ -313,15 +313,23 @@ public:
         }
         return "SSTBlockMeta(file: " + this->fileName + ", offset: " + std::to_string(this->fileOffset) + ", time_range: [" + std::to_string(this->start_time) + ", " + std::to_string(this->end_time) + "])";
     }
+    std::string serialize() const{
+        if(!this->stored){
+            throw std::runtime_error("Block not stored to disk");
+        }
+        return this->fileName + "," + std::to_string(this->fileOffset) + "," + std::to_string(this->start_time) + "," + std::to_string(this->end_time);
+    }
 };
 
 class SST{
 private:
+    // std::unordered_map<u_int64_t, std::vector<SSTBlockMeta>> region_sst_metas;
     std::vector<SSTBlockMeta> region_metas;
     std::string logPath;
     std::ofstream logFile;
 public:
     SST(std::string logPath):logPath(logPath){
+        // this->region_sst_metas = std::unordered_map<u_int64_t, std::vector<SSTBlockMeta>>();
         this->region_metas = std::vector<SSTBlockMeta>();
         this->logFile.open(this->logPath + "/sst_log.txt", std::ios::app);
         if(!this->logFile.is_open()){
@@ -342,6 +350,11 @@ public:
             throw e;
         }
         this->logFile << meta.Log() << std::endl;
+        // auto region_it = this->region_sst_metas.find(regionID);
+        // if(region_it == this->region_sst_metas.end()){
+        //     this->region_sst_metas[regionID] = std::vector<SSTBlockMeta>();
+        // }
+        // this->region_sst_metas[regionID].push_back(meta);
         this->region_metas.push_back(meta);
         meta.deleteCache();
     }
