@@ -18,13 +18,13 @@ private:
 
     std::atomic_bool stop;
 
-    bool isPowerOfTwo(u_int32_t n) {
+    bool isPowerOfTwo(u_int64_t n) {
         return (n & (n - 1)) == 0;
     }
 public:
-    PipeRing(u_int32_t capacity):capacity_(capacity){
+    PipeRing(u_int64_t capacity):capacity_(capacity){
         if(this->capacity_ & (this->capacity_ - 1)){
-            printf("PointerRingBuffer error: capacity %u is not power of 2!\n",capacity);
+            printf("PointerRingBuffer error: capacity %lu is not power of 2!\n",capacity);
             this->pointers = nullptr;
             return;
         }

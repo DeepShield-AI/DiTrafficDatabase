@@ -87,6 +87,7 @@ void RegionWorker::handleStatus(RegionAdminRequest& request, u_int64_t regionID,
         for (auto& el : colNames.items()){
             const std::string& key = el.key();
             const enum ColumnType& typeStr = (enum ColumnType)el.value().get<u_int64_t>();
+            columnNames[key] = typeStr;
         }
         std::shared_ptr<Memtable> memtable = std::make_shared<Memtable>(columnNames);
         this->closedRegions[regionID]->setMemtable(memtable);

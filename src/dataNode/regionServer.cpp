@@ -12,6 +12,7 @@ std::string RegionServer::getRequest(){
     std::string request;
     std::cout << "Enter request: ";
     std::cin >> request;
+    return request;
 }
 
 std::vector<MitoSignal*> RegionServer::parseRequests(std::string& rawRequest){

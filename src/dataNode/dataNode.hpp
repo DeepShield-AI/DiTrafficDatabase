@@ -3,11 +3,17 @@
 #include "regionWorker.hpp"
 #include "mitoEngine.hpp"
 #include "flusher.hpp"
+#include <thread>
 
 class DataNode{
 private:
-    /* data */
+    std::vector<std::unique_ptr<DataNodeComponent>> components;
+    std::vector<std::thread> componentThreads;
 public:
-    DataNode(/* args */);
-    ~DataNode();
+    DataNode();
+    ~DataNode() = default;
+    void init(std::unordered_map<std::string, std::string>& attrs);
+    void run();
+    void stop();
+    void clean();
 };

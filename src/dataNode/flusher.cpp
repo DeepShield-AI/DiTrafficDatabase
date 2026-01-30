@@ -20,7 +20,7 @@ void Flusher::handleFlush(FlushSignal* signal){
         this->log("Flushed memtable of region " +  std::to_string(signal->regionID) + " to SST successfully.");
     } catch (const std::runtime_error& e){
         this->log("Flusher error: " + std::string(e.what()));
-        std::cerr << "Flusher error: " << e.what() << std::endl;
+        // std::cerr << "Flusher error: " << e.what() << std::endl;
     }
     delete signal;
 }

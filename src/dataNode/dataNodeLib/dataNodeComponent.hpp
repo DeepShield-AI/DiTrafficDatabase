@@ -6,6 +6,7 @@
 #include "memtable.hpp"
 #include "SST.hpp"
 #include "region.hpp"
+#include "../../lib/pipeRing.hpp"
 
 struct DataNodeContext{
     PipeRing* serverEnginePipe;
@@ -19,12 +20,12 @@ private:
     std::string componentType;
     std::string componentName;
     u_int64_t componentID;
-    std::atomic_bool running;
     std::string logPath;
+    std::atomic_bool running;
     std::ofstream logFile;
 public:
     DataNodeComponent(const std::string& type,const std::string& name, const std::string& logPath, const u_int64_t id) : componentType(type), componentName(name),componentID(id), logPath(logPath), running(false){
-        this->logFile.open(this->logPath + "/" + this->componentType + "_log.txt", std::ios::app);
+        this->logFile.open(this->logPath + "/" + this->componentType + ".log", std::ios::app);
         if(!this->logFile.is_open()){
             throw std::runtime_error("Failed to open " + this->componentName + " log file");
         }

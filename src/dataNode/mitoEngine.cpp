@@ -22,7 +22,7 @@ void MitoEngine::handleSignal(MitoSignal* signal){
         .regionID = signal->regionID,
         .request = signal->request,
     });
-    this->workerPipes[workerID]->put((void*)signal);
+    this->workerPipes[workerID]->put((void*)workSignal);
     this->log("Dispatched signal for region " + std::to_string(signal->regionID) + " to worker " + std::to_string(workerID));
     delete signal;
 }
