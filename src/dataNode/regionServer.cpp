@@ -6,18 +6,28 @@ RegionServer::RegionServer(const std::string& name, const std::string& logPath, 
     this->regionEngineMap = std::unordered_map<u_int64_t, std::string>();
     this->enginePipes = std::vector<PipeRing*>();
     this->requestID = 0;
+    this->in = nullptr;
 }
 
-std::string RegionServer::getRequest(){
-    std::string request;
-    std::cout << "Enter request: ";
-    std::cin >> request;
-    return request;
+bool RegionServer::getRequest(std::string& request){
+    return static_cast<bool>(std::getline(*this->in, request));
 }
 
 std::vector<MitoSignal*> RegionServer::parseRequests(std::string& rawRequest){
-    json j = json::parse(rawRequest);
-    auto requests = j.get<DictList>();
+    json j;
+    DictList requests;
+    try{
+        j = json::parse(rawRequest);
+        if (!j.is_array()) {
+            this->log("Error json fommat, it should be array.");
+            return std::vector<MitoSignal*>();
+        }
+        requests = j.get<DictList>();
+    }catch (const nlohmann::json::exception& e){
+        this->log("Error json fommat: " + std::string(e.what()));
+        return std::vector<MitoSignal*>();
+    }
+    this->log("Parse succeed.");
     std::vector<MitoSignal*> signals;
     for(auto request:requests){
         if(request.find("type") == request.end() || request.find("regionID") == request.end()){
@@ -140,12 +150,16 @@ void RegionServer::handleNewRegion(u_int64_t regionID){
 
 void RegionServer::init(DataNodeContext& cfg){
     this->enginePipes.push_back(cfg.serverEnginePipe);
+    this->in = cfg.in;
+    this->log("init.");
 }
 
 void RegionServer::run(){
     this->start();
-    while(this->isRunning()){
-        std::string rawRequest = this->getRequest();
+    this->log("run.");
+    std::string rawRequest;
+    while(this->getRequest(rawRequest)){
+        this->log("Get requests:" + rawRequest);
         auto signals = this->parseRequests(rawRequest);
         for(auto& signal : signals){
             this->sendRegionRequest(signal);

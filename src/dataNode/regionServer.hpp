@@ -15,8 +15,9 @@ private:
     std::unordered_map<u_int64_t, std::string> regionEngineMap;
     std::vector<PipeRing*> enginePipes;
     u_int64_t requestID;
+    std::istream* in;
 
-    std::string getRequest();
+    bool getRequest(std::string& request);
     std::vector<MitoSignal*> parseRequests(std::string& rawRequest);
     void sendRegionRequest(MitoSignal* signal);
     void handleFailure(std::string request);

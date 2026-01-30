@@ -201,10 +201,12 @@ void RegionWorker::init(DataNodeContext& cfg){
     this->enginePipe = cfg.engineWorkerPipes[this->id()];
     this->flusherPipe = cfg.workerFlusherPipe;
     // this->memTableUsageThreshold = cfg.memTableUsageThreshold;
+    this->log("init.");
 }
 
 void RegionWorker::run(){
     this->start();
+    this->log("run.");
     while(this->isRunning()){
         WorkSignal* signal = this->getSignal();
         if(signal == nullptr){

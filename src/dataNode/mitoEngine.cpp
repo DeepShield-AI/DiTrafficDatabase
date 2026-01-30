@@ -31,9 +31,11 @@ void MitoEngine::init(DataNodeContext& cfg){
     for(u_int64_t i = 0;i<cfg.workerCount;++i){
         this->workerPipes.push_back(cfg.engineWorkerPipes[i]);
     }
+    this->log("init.");
 }
 void MitoEngine::run(){
     this->start();
+    this->log("run.");
     while(this->isRunning()){
         MitoSignal* signal = this->getSignal();
         if(signal == nullptr){

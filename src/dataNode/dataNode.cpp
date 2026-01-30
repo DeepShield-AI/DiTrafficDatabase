@@ -14,11 +14,15 @@ void DataNode::init(std::unordered_map<std::string, std::string>& attrs){
         for (u_int64_t i = 0; i<workerCount; ++i){
             engineWorkerPipes[i] = new PipeRing(stoull(attrs["engineWorkerPipeCapacity"]));
         }
-        DataNodeContext cfg = {
+
+        std::ifstream* fifo = new std::ifstream(attrs["fifo"]);
+
+        cfg = {
             .serverEnginePipe = serverEnginePipe,
             .workerFlusherPipe = workerFlusherPipe,
             .workerCount = workerCount,
             .engineWorkerPipes = engineWorkerPipes,
+            .in = fifo,
         };
         
         this->components.push_back(std::make_unique<RegionServer>(attrs["regionServerName"],attrs["logPath"],0));
@@ -35,9 +39,12 @@ void DataNode::init(std::unordered_map<std::string, std::string>& attrs){
         this->components.push_back(std::make_unique<Flusher>(attrs["FlusherName"],attrs["logPath"],0));
         this->components.back()->init(cfg);
 
+        printf("Data node init.\n");
+
     } catch (const std::invalid_argument& e){
         std::cout << "Data node init failed with error " << std::string(e.what()) << std::endl;
     }
+    
 }
 
 void DataNode::run(){
@@ -50,6 +57,7 @@ void DataNode::run(){
             comp->run();
         });
     }    
+    printf("Data node run.\n");
 }
 
 void DataNode::stop(){
@@ -69,4 +77,8 @@ void DataNode::stop(){
 
 void DataNode::clean(){
     this->components.clear();
+    delete[] this->cfg.engineWorkerPipes;
+    delete this->cfg.in;
+    delete this->cfg.serverEnginePipe;
+    delete this->cfg.workerFlusherPipe;
 }

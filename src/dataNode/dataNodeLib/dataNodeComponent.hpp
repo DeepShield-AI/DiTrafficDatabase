@@ -13,6 +13,7 @@ struct DataNodeContext{
     PipeRing* workerFlusherPipe;
     u_int64_t workerCount;
     PipeRing** engineWorkerPipes;
+    std::istream* in;
 };
 
 class DataNodeComponent {
@@ -25,7 +26,8 @@ private:
     std::ofstream logFile;
 public:
     DataNodeComponent(const std::string& type,const std::string& name, const std::string& logPath, const u_int64_t id) : componentType(type), componentName(name),componentID(id), logPath(logPath), running(false){
-        this->logFile.open(this->logPath + "/" + this->componentType + ".log", std::ios::app);
+        // this->logFile.open(this->logPath + "/" + this->componentType + ".log", std::ios::app);
+        this->logFile.open(this->logPath + "/" + this->componentType + ".log");
         if(!this->logFile.is_open()){
             throw std::runtime_error("Failed to open " + this->componentName + " log file");
         }

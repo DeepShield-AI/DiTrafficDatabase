@@ -13,11 +13,21 @@ int main(int argc, char* argv[]){
     attrs["RegionWorkerName"] = "worker";
     attrs["FlusherName"] = "flusher";
     attrs["logPath"] = "log/dataNode";
+    attrs["fifo"] = "/tmp/datanode_input";
 
     DataNode node = DataNode();
     node.init(attrs);
     node.run();
-    sleep(3);
+
+    while (true){
+        std::string op;
+        std::cin >> op;
+        if (op[0] =='q'){
+            break;
+        }
+    }
+    
+    
     node.stop();
     node.clean();
     return 0;

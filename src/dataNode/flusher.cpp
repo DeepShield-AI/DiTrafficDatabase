@@ -27,11 +27,13 @@ void Flusher::handleFlush(FlushSignal* signal){
 
 void Flusher::init(DataNodeContext& cfg){
     this->workerPipe = cfg.workerFlusherPipe;
+    this->log("init.");
     // this->sst = cfg.sst;
 }
 
 void Flusher::run(){
     this->start();
+    this->log("run.");
     while(this->isRunning()){
         FlushSignal* signal = this->getSignal();
         if(signal == nullptr){
