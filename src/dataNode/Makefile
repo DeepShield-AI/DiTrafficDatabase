@@ -1,7 +1,7 @@
 # 编译器与编译选项
 CXX := g++
 CXXFLAGS := -std=c++17 -Wall -O2
-LDFLAGS := -lpcap
+LDFLAGS := 
 
 # 源文件与目标目录
 SRC := main.cpp dataNode.cpp regionServer.cpp mitoEngine.cpp regionWorker.cpp flusher.cpp

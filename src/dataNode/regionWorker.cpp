@@ -17,22 +17,30 @@ WorkSignal* RegionWorker::getSignal(){
 }
 
 void RegionWorker::handleWrite(WriteRequest& request, u_int64_t regionID, u_int64_t requestID){
-    json j = json::parse(request.jsonData);
     std::unordered_map<std::string, Value> fields;
-    for (auto& el : j.items()){
-        const std::string& key = el.key();
-        if (el.value().is_number_unsigned()){
-            fields[key] = el.value().get<u_int64_t>();
-        } else if (el.value().is_number_integer()){
-            fields[key] = el.value().get<int64_t>();
-        } else if (el.value().is_number_float()){
-            fields[key] = el.value().get<double>();
-        } else if (el.value().is_string()){
-            fields[key] = el.value().get<std::string>();
-        } else {
-            this->log("[Request " + std::to_string(requestID) + "]Unsupported data type for field " + key + " in region " + std::to_string(regionID));
-            return;
+    try {
+        json j = json::parse(request.jsonData);
+        if(!j.is_object()){
+            this->log("Error json fommat with " + request.jsonData);
         }
+        for (auto& el : j.items()){
+            const std::string& key = el.key();
+            if (el.value().is_number_unsigned()){
+                fields[key] = el.value().get<u_int64_t>();
+            } else if (el.value().is_number_integer()){
+                fields[key] = el.value().get<int64_t>();
+            } else if (el.value().is_number_float()){
+                fields[key] = el.value().get<double>();
+            } else if (el.value().is_string()){
+                fields[key] = el.value().get<std::string>();
+            } else {
+                this->log("[Request " + std::to_string(requestID) + "]Unsupported data type for field " + key + " in region " + std::to_string(regionID));
+                return;
+            }
+        }
+    }catch (const nlohmann::json::exception& e){
+        this->log("Error json fommat: " + std::string(e.what()));
+        return;
     }
     auto rowSize = this->regions[regionID]->getMemtable()->calRowSize(fields);
     if(rowSize.fixed_size + rowSize.var_size > std::stoull(this->regions[regionID]->getAtrr("memTableUsageThreshold"))){
@@ -42,6 +50,7 @@ void RegionWorker::handleWrite(WriteRequest& request, u_int64_t regionID, u_int6
 
     // TODO: WAL
     // ...
+    
 
     if(this->checkRegionMemUsage(regionID) + rowSize.fixed_size + rowSize.var_size > std::stoull(this->regions[regionID]->getAtrr("memTableUsageThreshold"))){
         this->sendFlushSignal(regionID);
@@ -49,6 +58,9 @@ void RegionWorker::handleWrite(WriteRequest& request, u_int64_t regionID, u_int6
     this->regions[regionID]->getMemtable()->write(request.timestamp, fields);
     this->regions[regionID]->getMemtable()->addRowSize(rowSize);
     this->log("[Request " + std::to_string(requestID) + "]Handled region write request for region " + std::to_string(regionID));
+
+    
+    this->log("(For debug) Row data: " + request.jsonData + "; Table size: " + std::to_string(this->checkRegionMemUsage(regionID)) + "; Table rows: " + std::to_string(this->regions[regionID]->getMemtable()->getRowCount()));
 }
 
 void RegionWorker::handleStatus(RegionAdminRequest& request, u_int64_t regionID, u_int64_t requestID){
@@ -79,7 +91,7 @@ void RegionWorker::handleStatus(RegionAdminRequest& request, u_int64_t regionID,
             paras.patition,
             attrs
         );
-        std::shared_ptr<SST> sst = std::make_shared<SST>(newRegion->getAtrr("sstPath"),this->path());
+        std::shared_ptr<SST> sst = std::make_shared<SST>(regionID,newRegion->getAtrr("sstPath"),this->path());
         newRegion->setSST(sst);
         this->closedRegions[regionID] = std::move(newRegion);
         this->log("[Request " + std::to_string(requestID) + "]Created region " + std::to_string(regionID));
@@ -168,7 +180,7 @@ void RegionWorker::sendFlushSignal(u_int64_t regionID){
         .startTime = memtable->getMinTime(),
         .endTime = memtable->getMaxTime(),
         .memtable = memtable,
-        // .sst = sst,
+        .sst = sst,
     };
     this->flusherPipe->put((void*)signal);
     this->log("Sent flush signal for region " + std::to_string(regionID));

@@ -59,14 +59,15 @@ struct BlockVarMeta{
             if(col_type == ColumnType::STRING){
                 this->column_size[idx] = sizeof(VarColumnInfo);
             }else if(col_type == ColumnType::INT64){
-                this->column_size[idx] += sizeof(int64_t);
+                this->column_size[idx] = sizeof(int64_t);
             }else if(col_type == ColumnType::UINT64){
-                this->column_size[idx] += sizeof(u_int64_t);
+                this->column_size[idx] = sizeof(u_int64_t);
             }else if(col_type == ColumnType::DOUBLE){
-                this->column_size[idx] += sizeof(double);
+                this->column_size[idx] = sizeof(double);
             }else{
                 throw std::invalid_argument("Unknown column type");
             }
+            // printf("id:%lu, offset:%lu, size:%lu\n",idx,name_offset,this->column_size[idx]);
             name_offset += col_name.size();
             idx++;
         }
@@ -78,7 +79,11 @@ struct FixedBlock{
     char* rows;
     void write(u_int64_t rowID, u_int64_t rowSize, u_int64_t colOffset, u_int64_t colSize, char* data){
         u_int64_t offset = rowSize * rowID + colOffset;
+
+        // printf("offset: %lu\n",offset);
+        // printf("col size: %lu\n",colSize);
         std::memcpy(this->rows + offset, data, colSize);
+        // printf("test.\n");
     }
     char* read(u_int64_t rowID, u_int64_t rowSize, u_int64_t colOffset){
         u_int64_t offset = rowSize * rowID + colOffset;
@@ -105,6 +110,7 @@ private:
     VarBlock var_block;
 public:
     SSTBlock(u_int64_t buffer_size){
+        // printf("buffer size: %lu\n",buffer_size);
         this->buffer = new char[buffer_size];
         this->fixed_meta = (BlockFixedMeta*)this->buffer;
         this->fixed_meta->block_size = buffer_size;
@@ -123,7 +129,9 @@ public:
         this->var_block.buffer = this->buffer + sizeof(BlockFixedMeta) + this->fixed_meta->var_meta_size + this->fixed_meta->fixed_data_size;
     }
     ~SSTBlock(){
-        delete[] this->buffer;
+        if(this->buffer!= nullptr){
+            delete[] this->buffer;
+        }
     }
     void serializeMemtable(std::shared_ptr<Memtable> memtable){
         auto column_names = memtable->getColumnNames();
@@ -131,7 +139,7 @@ public:
         this->fixed_meta->row_count = table.size();
         this->fixed_meta->col_count = column_names.size();
         this->fixed_meta->var_meta_size = BlockVarMeta::BasicSize(this->fixed_meta->col_count) + memtable->columnNameSize();
-
+        
         // Calculate fixed data size
         u_int64_t fixed_row_size = 0;
         std::vector<u_int64_t> col_offsets;
@@ -153,6 +161,9 @@ public:
 
         this->fixed_meta->var_data_size = memtable->varCapacity();
 
+        this->fixed_block.rows = this->buffer + sizeof(BlockFixedMeta) + this->fixed_meta->var_meta_size;
+        this->var_block.buffer = this->buffer + sizeof(BlockFixedMeta) + this->fixed_meta->var_meta_size + this->fixed_meta->fixed_data_size;
+
         // Fill VarMeta
         this->var_meta = BlockVarMeta(this->buffer + sizeof(BlockFixedMeta), this->fixed_meta->col_count);
         try{
@@ -161,15 +172,19 @@ public:
             throw e;
         }
 
+        // printf("test 1d\n");
         // Fill FixedBlock and VarBlock
         u_int64_t rowID = 0;
         u_int64_t var_data_offset = 0;
         for(auto row:table){
             for(u_int64_t idx = 0; idx < this->fixed_meta->col_count; idx++){
+                // printf("2a\n");
                 ColumnType col_type = this->var_meta.column_types[idx];
                 u_int64_t col_size = this->var_meta.column_size[idx];
                 Value val = row.data[idx];
+                // printf("2b\n");
                 if(col_type == ColumnType::STRING){
+                    // printf("2c\n");
                     std::string str_val = std::get<std::string>(val);
                     VarColumnInfo var_info;
                     var_info.offset = this->fixed_meta->var_data_size;
@@ -180,12 +195,15 @@ public:
                     this->var_block.write((char*)str_val.c_str(), str_val.size(), var_data_offset);
                     var_data_offset += str_val.size();
                 }else if(col_type == ColumnType::INT64){
+                    // printf("2d\n");
                     int64_t int_val = std::get<int64_t>(val);
                     this->fixed_block.write(rowID, fixed_row_size, col_offsets[idx], col_size, (char*)&int_val);
                 }else if(col_type == ColumnType::UINT64){
+                    // printf("2e\n");
                     u_int64_t uint_val = std::get<u_int64_t>(val);
                     this->fixed_block.write(rowID, fixed_row_size, col_offsets[idx], col_size, (char*)&uint_val);
                 }else if(col_type == ColumnType::DOUBLE){
+                    // printf("2f\n");
                     double double_val = std::get<double>(val);
                     this->fixed_block.write(rowID, fixed_row_size, col_offsets[idx], col_size, (char*)&double_val);
                 }else{
@@ -194,6 +212,7 @@ public:
             }
             rowID++;
         }
+        // printf("test 1e\n");
     }
     char* data() const{
         return this->buffer;
@@ -254,12 +273,14 @@ public:
             throw std::runtime_error("Block already stored to disk");
         }
         u_int64_t disk_size = 0;
+        // printf("test 1.\n");
         auto column_names = memtable->getColumnNames();
         auto table = memtable->getTable();
         auto row_count = table.size();
         auto col_count = column_names.size();
         disk_size += sizeof(BlockFixedMeta);
         disk_size += BlockVarMeta::BasicSize(col_count) + memtable->columnNameSize();
+        // printf("test 2.\n");
         // Calculate fixed data size
         u_int64_t fixed_row_size = 0;
         std::vector<u_int64_t> col_offsets;
@@ -279,7 +300,7 @@ public:
         }
         disk_size += fixed_row_size * row_count;
         disk_size += memtable->varCapacity();
-        
+        // printf("test 3.\n");
         SSTBlock* new_block = new SSTBlock(disk_size);
         try{
             new_block->serializeMemtable(memtable);
@@ -288,6 +309,7 @@ public:
             throw e;
         }
         // Write to file
+        // printf("test 4.\n");
         std::string fullPath = this->fileFolder + "/" + this->fileName;
         std::ofstream outfile(fullPath, std::ios::binary | std::ios::app);
         if(!outfile.is_open()){
@@ -300,6 +322,7 @@ public:
         outfile.close();
         this->block = new_block;
         this->stored = true;
+        // printf("test 5.\n");
     }
     void deleteCache(){
         if(this->block != nullptr){
@@ -324,39 +347,48 @@ public:
 class SST{
 private:
     // std::unordered_map<u_int64_t, std::vector<SSTBlockMeta>> region_sst_metas;
+    u_int64_t regionID;
     std::vector<SSTBlockMeta> region_metas;
     std::string dataPath;
     std::string logPath;
     std::ofstream logFile;
 public:
-    SST(std::string dataPath, std::string logPath):dataPath(dataPath),logPath(logPath){
+    SST(u_int64_t regionID, std::string dataPath, std::string logPath):regionID(regionID),dataPath(dataPath),logPath(logPath){
         // this->region_sst_metas = std::unordered_map<u_int64_t, std::vector<SSTBlockMeta>>();
         this->region_metas = std::vector<SSTBlockMeta>();
         this->logFile.open(this->logPath + "/sst.log", std::ios::app);
         if(!this->logFile.is_open()){
             throw std::runtime_error("Failed to open SST log file");
         }
+        this->log("Create sst for region " + std::to_string(regionID));
     }
     ~SST(){
+        this->region_metas.clear();
         if(this->logFile.is_open()){
             this->logFile.close();
         }
     }
     void appendMemtable(std::shared_ptr<Memtable> memtable, u_int64_t start_time, u_int64_t end_time, u_int64_t regionID){
         std::string fileName = "sst_" + std::to_string(regionID) + ".sst";
-        SSTBlockMeta meta(this->logPath, fileName, 0, start_time, end_time);
+        SSTBlockMeta meta(this->dataPath, fileName, 0, start_time, end_time);
         try{
             meta.flushBlock(memtable);
         } catch (const std::runtime_error& e){
             throw e;
         }
-        this->logFile << meta.Log() << std::endl;
+        this->log(meta.Log());
         // auto region_it = this->region_sst_metas.find(regionID);
         // if(region_it == this->region_sst_metas.end()){
         //     this->region_sst_metas[regionID] = std::vector<SSTBlockMeta>();
         // }
         // this->region_sst_metas[regionID].push_back(meta);
-        this->region_metas.push_back(meta);
         meta.deleteCache();
+        this->region_metas.push_back(meta);
+    }
+    void log(const std::string& message){
+        std::string log_message = "[SST] " + message;
+        if(this->logFile.is_open()){
+            this->logFile << log_message << std::endl;
+        }
     }
 };

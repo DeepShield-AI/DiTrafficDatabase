@@ -1,7 +1,5 @@
 #include "regionServer.hpp"
 
-
-
 RegionServer::RegionServer(const std::string& name, const std::string& logPath, const u_int64_t id):DataNodeComponent("RegionServer", name, logPath, id){
     this->regionEngineMap = std::unordered_map<u_int64_t, std::string>();
     this->enginePipes = std::vector<PipeRing*>();
