@@ -51,12 +51,13 @@ std::vector<MitoSignal*> RegionServer::parseRequests(std::string& rawRequest){
             }
             WriteRequest writeReq = {
                 .timestamp = std::stoull(request["timestamp"]),
-                .jsonSize = request["jsonData"].size(),
+                // .jsonSize = request["jsonData"].size(),
+                .jsonData = request["jsonData"],
             };
             // std::string* jsonData = new std::string(request["jsonData"]);
             // writeReq.jsonData = (const u_int8_t*)jsonData->c_str();
-            writeReq.jsonData = (const u_int8_t*)new char[writeReq.jsonSize];
-            memcpy((void*)writeReq.jsonData, request["jsonData"].c_str(), writeReq.jsonSize);
+            // writeReq.jsonData = (const u_int8_t*)new char[writeReq.jsonSize];
+            // memcpy((void*)writeReq.jsonData, request["jsonData"].c_str(), writeReq.jsonSize);
 
             MitoSignal* signal = new MitoSignal{
                 .regionID = std::stoull(request["regionID"]),
@@ -84,25 +85,37 @@ std::vector<MitoSignal*> RegionServer::parseRequests(std::string& rawRequest){
                     continue;
                 }
                 adminReq.op = RegionOperation::CREATE;
-                adminReq.create.name = (const u_int8_t*)new char[request["regionName"].size()];
-                memcpy((void*)adminReq.create.name, request["regionName"].c_str(), request["regionName"].size());
-                adminReq.create.name_size = request["regionName"].size();
-                adminReq.create.partition_expr = (const u_int8_t*)new char[request["expr"].size()];
-                memcpy((void*)adminReq.create.partition_expr, request["expr"].c_str(), request["expr"].size());
-                adminReq.create.partition_expr_size = request["expr"].size();
-                adminReq.create.attrs_json = (const u_int8_t*)new char[request["attrs"].size()];
-                memcpy((void*)adminReq.create.attrs_json, request["attrs"].c_str(), request["attrs"].size());
-                adminReq.create.attrs_json_size = request["attrs"].size();
+                adminReq.paras = CreateRegion{
+                    .name = request["regionName"],
+                    .patition = request["expr"],
+                    .attrs_json = request["attrs"],
+                };
+                
+                // adminReq.paras.name = (const u_int8_t*)new char[request["regionName"].size()];
+                // memcpy((void*)adminReq.create.name, request["regionName"].c_str(), request["regionName"].size());
+                // adminReq.create.name_size = request["regionName"].size();
+                // adminReq.create.partition_expr = (const u_int8_t*)new char[request["expr"].size()];
+                // memcpy((void*)adminReq.create.partition_expr, request["expr"].c_str(), request["expr"].size());
+                // adminReq.create.partition_expr_size = request["expr"].size();
+                // adminReq.create.attrs_json = (const u_int8_t*)new char[request["attrs"].size()];
+                // memcpy((void*)adminReq.create.attrs_json, request["attrs"].c_str(), request["attrs"].size());
+                // adminReq.create.attrs_json_size = request["attrs"].size();
                 this->handleNewRegion(std::stoull(request["regionID"]));
             }else if (request["operation"] == "OPEN"){
                 adminReq.op = RegionOperation::OPEN;
-                adminReq.open.force = false;
+                adminReq.paras = OpenRegion{
+                    .force = false,
+                };
             }else if (request["operation"] == "CLOSE"){
                 adminReq.op = RegionOperation::CLOSE;
-                adminReq.close.force = false;
+                adminReq.paras = CloseRegion{
+                    .force = false,
+                };
             }else if (request["operation"] == "DROP"){
                 adminReq.op = RegionOperation::DROP;
-                adminReq.drop.keep_files = false;
+                adminReq.paras = DropRegion{
+                    .keep_files = true,
+                };
             }else{
                 json jr = request;
                 this->log("Invalid ADMIN operation: " + jr.dump());

@@ -144,6 +144,7 @@ public:
         this->mut = true;
         this->min_time = std::numeric_limits<u_int64_t>::max();
         this->max_time = 0;
+        this->row_count = 0;
     }
     ~Memtable() = default;
     void write(const KeySeries& key, u_int64_t ts, const std::unordered_map<std::string, Value>& fields) {

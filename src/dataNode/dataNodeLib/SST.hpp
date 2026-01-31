@@ -325,13 +325,14 @@ class SST{
 private:
     // std::unordered_map<u_int64_t, std::vector<SSTBlockMeta>> region_sst_metas;
     std::vector<SSTBlockMeta> region_metas;
+    std::string dataPath;
     std::string logPath;
     std::ofstream logFile;
 public:
-    SST(std::string logPath):logPath(logPath){
+    SST(std::string dataPath, std::string logPath):dataPath(dataPath),logPath(logPath){
         // this->region_sst_metas = std::unordered_map<u_int64_t, std::vector<SSTBlockMeta>>();
         this->region_metas = std::vector<SSTBlockMeta>();
-        this->logFile.open(this->logPath + "/sst_log.txt", std::ios::app);
+        this->logFile.open(this->logPath + "/sst.log", std::ios::app);
         if(!this->logFile.is_open()){
             throw std::runtime_error("Failed to open SST log file");
         }

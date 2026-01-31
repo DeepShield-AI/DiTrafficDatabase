@@ -17,7 +17,7 @@ WorkSignal* RegionWorker::getSignal(){
 }
 
 void RegionWorker::handleWrite(WriteRequest& request, u_int64_t regionID, u_int64_t requestID){
-    json j = json::parse(std::string((const char*)request.jsonData, request.jsonSize));
+    json j = json::parse(request.jsonData);
     std::unordered_map<std::string, Value> fields;
     for (auto& el : j.items()){
         const std::string& key = el.key();
@@ -52,24 +52,34 @@ void RegionWorker::handleWrite(WriteRequest& request, u_int64_t regionID, u_int6
 }
 
 void RegionWorker::handleStatus(RegionAdminRequest& request, u_int64_t regionID, u_int64_t requestID){
+    this->log("Handel admin request with op " + std::to_string((u_int64_t)request.op));
     if(request.op == RegionOperation::CREATE){
         if (this->regions.find(regionID) != this->regions.end() && this->closedRegions.find(regionID) != this->closedRegions.end()){
             this->log("[Request " + std::to_string(requestID) + "]Region " + std::to_string(regionID) + " already exists.");
             return;
         }
-        auto paras = request.create;
-        json attrs_json = json::parse(std::string((const char*)paras.attrs_json, paras.attrs_json_size));
+        auto paras = std::get<CreateRegion>(request.paras);
         std::unordered_map<std::string, std::string> attrs;
-        for (auto& el : attrs_json.items()){
-            attrs[el.key()] = el.value().get<std::string>();
+        try{
+            json attrs_json = json::parse(paras.attrs_json);
+            if (!attrs_json.is_object()) {
+                this->log("Error json fommat, attrs should be object with " + paras.attrs_json);
+                return;
+            }
+            for (auto& el : attrs_json.items()){
+                attrs[el.key()] = el.value().get<std::string>();
+            }
+        }  catch (const nlohmann::json::exception& e){
+            this->log("Error json fommat: " + std::string(e.what()) + " with " + paras.attrs_json);
+            return;
         }
         std::unique_ptr<Region> newRegion = std::make_unique<Region>(
             regionID,
-            std::string((const char*)paras.name, paras.name_size),
-            std::string((const char*)paras.partition_expr, paras.partition_expr_size),
+            paras.name,
+            paras.patition,
             attrs
         );
-        std::shared_ptr<SST> sst = std::make_shared<SST>(newRegion->getAtrr("sstPath"));
+        std::shared_ptr<SST> sst = std::make_shared<SST>(newRegion->getAtrr("sstPath"),this->path());
         newRegion->setSST(sst);
         this->closedRegions[regionID] = std::move(newRegion);
         this->log("[Request " + std::to_string(requestID) + "]Created region " + std::to_string(regionID));
@@ -83,6 +93,10 @@ void RegionWorker::handleStatus(RegionAdminRequest& request, u_int64_t regionID,
             return;
         }
         json colNames = json::parse(this->closedRegions[regionID]->getAtrr("columnNames"));
+        if (!colNames.is_object()) {
+            this->log("Error json fommat, colNames should be object.");
+            return;
+        }
         std::unordered_map<std::string, ColumnType> columnNames;
         for (auto& el : colNames.items()){
             const std::string& key = el.key();
@@ -164,6 +178,7 @@ void RegionWorker::handleSignal(WorkSignal* signal){
     u_int64_t regionID = signal->regionID;
     Request& request = signal->request;
     auto region = this->regions.find(regionID);
+    // this->log("Handel signal of request " + signal->request.header.request_id);
     if(region == this->regions.end()){
         if (request.type == RequestType::REGION_ADMIN){
             auto exsitingClosedRegion = this->closedRegions.find(regionID);

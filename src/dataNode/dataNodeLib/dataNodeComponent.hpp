@@ -26,8 +26,8 @@ private:
     std::ofstream logFile;
 public:
     DataNodeComponent(const std::string& type,const std::string& name, const std::string& logPath, const u_int64_t id) : componentType(type), componentName(name),componentID(id), logPath(logPath), running(false){
-        // this->logFile.open(this->logPath + "/" + this->componentType + ".log", std::ios::app);
-        this->logFile.open(this->logPath + "/" + this->componentType + ".log");
+        this->logFile.open(this->logPath + "/" + this->componentType + ".log", std::ios::app);
+        // this->logFile.open(this->logPath + "/" + this->componentType + ".log");
         if(!this->logFile.is_open()){
             throw std::runtime_error("Failed to open " + this->componentName + " log file");
         }
@@ -50,6 +50,9 @@ public:
     }
     std::string name() const{
         return this->componentName;
+    }
+    std::string path() const {
+        return this->logPath;
     }
     u_int64_t id() const{
         return this->componentID;
