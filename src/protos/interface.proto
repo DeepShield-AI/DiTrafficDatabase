@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package interface;
+
+service Interface {
+    rpc SendRequest (InterfaceRequest) returns (InterfaceReply) {}
+}
+
+message InterfaceRequest {
+    string request = 1;
+}
+
+message InterfaceReply {
+    string reply = 1;
+}
