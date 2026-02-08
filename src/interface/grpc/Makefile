@@ -1,7 +1,7 @@
 CXX = g++
-CPPFLAGS += `pkg-config --cflags protobuf grpc` -I../../protos
+CPPFLAGS += `pkg-config --cflags protobuf grpc grpc++` -I../../protos
 CXXFLAGS += -std=c++14
-LDFLAGS += `pkg-config --libs protobuf grpc++ grpc` -ldl
+LDFLAGS += `pkg-config --libs protobuf grpc++ grpc` -lgrpc++_reflection -ldl
 
 PROTO_SRC_DIR = ../../protos
 PROTOS_OBJ = interface.pb.o interface.grpc.pb.o
