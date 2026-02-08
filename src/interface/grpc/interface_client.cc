@@ -6,7 +6,7 @@
 #include <thread>
 #include <chrono>
 
-#include "interface.grpc.pb.h"
+#include "build/interface.grpc.pb.h"
 
 // gRPC Server ip¼°¶Ë¿Ú
 const std::string ServerTarget = "localhost:50051";

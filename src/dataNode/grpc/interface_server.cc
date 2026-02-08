@@ -7,7 +7,7 @@
 #include <string>
 #include <fstream>
 
-#include "interface.grpc.pb.h"
+#include "build/interface.grpc.pb.h"
 
 using grpc::CallbackServerContext;
 using grpc::Server;

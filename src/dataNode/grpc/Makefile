@@ -1,22 +1,39 @@
 CXX = g++
-CPPFLAGS += `pkg-config --cflags protobuf grpc grpc++` -I../../protos
+CPPFLAGS += `pkg-config --cflags protobuf grpc grpc++` -I../../protos -I.
 CXXFLAGS += -std=c++14
 LDFLAGS += `pkg-config --libs protobuf grpc++ grpc` -lgrpc++_reflection -ldl
 
 PROTO_SRC_DIR = ../../protos
-PROTOS_OBJ = interface.pb.o interface.grpc.pb.o
+BUILD_DIR = build
 
-all: interface_server
+OBJS = $(BUILD_DIR)/interface.pb.o \
+       $(BUILD_DIR)/interface.grpc.pb.o \
+       $(BUILD_DIR)/interface_server.o
 
-interface.pb.cc interface.grpc.pb.cc: $(PROTO_SRC_DIR)/interface.proto
-	protoc -I $(PROTO_SRC_DIR) --cpp_out=. $(PROTO_SRC_DIR)/interface.proto
-	protoc -I $(PROTO_SRC_DIR) --grpc_out=. --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` $(PROTO_SRC_DIR)/interface.proto
+GEN_SOURCES = $(BUILD_DIR)/interface.pb.cc $(BUILD_DIR)/interface.grpc.pb.cc
+GEN_HEADERS = $(BUILD_DIR)/interface.pb.h $(BUILD_DIR)/interface.grpc.pb.h
 
-%.o: %.cc
+TARGET = interface_server
+
+all: $(BUILD_DIR) $(TARGET)
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(GEN_SOURCES) $(GEN_HEADERS): $(PROTO_SRC_DIR)/interface.proto
+	protoc -I $(PROTO_SRC_DIR) --cpp_out=$(BUILD_DIR) $(PROTO_SRC_DIR)/interface.proto
+	protoc -I $(PROTO_SRC_DIR) --grpc_out=$(BUILD_DIR) --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` $(PROTO_SRC_DIR)/interface.proto
+
+$(BUILD_DIR)/%.o: %.cc $(GEN_HEADERS)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $< -o $@
 
-interface_server: $(PROTOS_OBJ) interface_server.o
-	$(CXX) $^ $(LDFLAGS) -o $@
+$(BUILD_DIR)/%.o: $(BUILD_DIR)/%.cc $(GEN_HEADERS)
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $< -o $@
+
+$(TARGET): $(OBJS)
+	$(CXX) $(OBJS) $(LDFLAGS) -o $@
 
 clean:
-	rm -f *.o *.pb.cc *.pb.h interface_server
+	rm -rf $(BUILD_DIR)
+	rm -f $(TARGET)
+	@echo "Cleaned."
