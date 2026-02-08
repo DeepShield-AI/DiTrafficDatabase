@@ -41,7 +41,7 @@ class InterfaceServiceImpl final : public Interface::CallbackService {
   }
 };
 
-void RunServer(uint16_t port) {
+void RunServer() {
   std::string server_address("0.0.0.0:50051");
   InterfaceServiceImpl service;
 
