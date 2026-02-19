@@ -227,10 +227,11 @@ private:
     u_int64_t fileOffset;
     u_int64_t start_time;
     u_int64_t end_time;
-    SSTBlock* block;
+    u_int64_t block_id;
+    std::shared_ptr<SSTBlock> block;
     bool stored;
 public:
-    SSTBlockMeta(std::string fileFolder, std::string fileName, u_int64_t fileOffset, u_int64_t start_time, u_int64_t end_time){
+    SSTBlockMeta(std::string fileFolder, std::string fileName, u_int64_t fileOffset, u_int64_t start_time, u_int64_t end_time, u_int64_t block_id){
         this->fileFolder = fileFolder;
         this->fileName = fileName;
         this->fileOffset = fileOffset;
@@ -239,11 +240,7 @@ public:
         this->block = nullptr;
         this->stored = false;
     }
-    ~SSTBlockMeta(){
-        if(this->block != nullptr){
-            delete this->block;
-        }
-    }
+    ~SSTBlockMeta() = default;
     std::shared_ptr<SSTBlock> loadBlock(){
         std::string fullPath = this->fileFolder + "/" + this->fileName;
         std::ifstream infile(fullPath, std::ios::binary);
@@ -265,7 +262,7 @@ public:
         char* buffer = new char[fixed_meta.block_size];
         infile.read(buffer, fixed_meta.block_size);
         infile.close();
-        this->block = new SSTBlock(buffer, fixed_meta.block_size);
+        this->block = std::make_shared<SSTBlock>(new SSTBlock(buffer, fixed_meta.block_size));
         return std::shared_ptr<SSTBlock>(this->block);
     }
     void flushBlock(std::shared_ptr<Memtable> memtable){
@@ -320,13 +317,13 @@ public:
         this->fileOffset = outfile.tellp();
         outfile.write(new_block->data(), disk_size);
         outfile.close();
-        this->block = new_block;
+        this->block = std::make_shared<SSTBlock>(new_block);
         this->stored = true;
         // printf("test 5.\n");
     }
     void deleteCache(){
         if(this->block != nullptr){
-            delete this->block;
+            this->block.reset();
             this->block = nullptr;
         }
     }
@@ -370,7 +367,7 @@ public:
     }
     void appendMemtable(std::shared_ptr<Memtable> memtable, u_int64_t start_time, u_int64_t end_time, u_int64_t regionID){
         std::string fileName = "sst_" + std::to_string(regionID) + ".sst";
-        SSTBlockMeta meta(this->dataPath, fileName, 0, start_time, end_time);
+        SSTBlockMeta meta(this->dataPath, fileName, 0, start_time, end_time,this->region_metas.size());
         try{
             meta.flushBlock(memtable);
         } catch (const std::runtime_error& e){
