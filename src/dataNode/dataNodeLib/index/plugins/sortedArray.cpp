@@ -2,7 +2,7 @@
 
 // UINT64 + SORTED_ARRAY
 static BuilderRegistrar<
-    SortedArrayIndexBlock<uint64_t>
+    SortedArrayIndexBlock<u_int64_t>
 > reg_uint64_sorted(
     ValueType::UINT64,
     InvertedKind::SORTED_ARRAY
@@ -26,7 +26,7 @@ static BuilderRegistrar<
 
 // UINT64 + SORTED_ARRAY
 static BuilderRegistrar<
-    SortedArrayIndexBuilder<uint64_t>
+    SortedArrayIndexBuilder<u_int64_t>
 > reg_uint64_sorted(
     ValueType::UINT64,
     InvertedKind::SORTED_ARRAY

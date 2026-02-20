@@ -1,14 +1,14 @@
 #include "trie.hpp"
 
 static BuilderRegistrar<
-    TrieIndexBlock<uint64_t>
+    TrieIndexBlock<std::string>
 > reg_uint64_sorted(
     ValueType::STRING,
     InvertedKind::TRIE
 );
 
 static BuilderRegistrar<
-    TrieIndexBuilder<uint64_t>
+    TrieIndexBuilder<std::string>
 > reg_uint64_sorted(
     ValueType::STRING,
     InvertedKind::TRIE

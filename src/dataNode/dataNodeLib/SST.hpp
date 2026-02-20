@@ -227,7 +227,7 @@ private:
     u_int64_t fileOffset;
     u_int64_t start_time;
     u_int64_t end_time;
-    u_int64_t block_id;
+    // u_int64_t block_id;
     std::shared_ptr<SSTBlock> block;
     bool stored;
 public:
@@ -239,6 +239,7 @@ public:
         this->end_time = end_time;
         this->block = nullptr;
         this->stored = false;
+        // this->block_id = block_id;
     }
     ~SSTBlockMeta() = default;
     std::shared_ptr<SSTBlock> loadBlock(){

@@ -20,6 +20,7 @@ struct TrieNode {
 };
 #pragma pack(pop)
 
+template<typename T>
 class TrieIndexBlock : public TypedInvertedIndexBlock<std::string> {
     TrieNode* nodes;
     u_int32_t* node_count_ptr;

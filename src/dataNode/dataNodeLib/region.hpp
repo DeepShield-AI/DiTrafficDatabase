@@ -1,6 +1,7 @@
 #pragma once
 #include "memtable.hpp"
 #include "SST.hpp"
+#include "index/invertedIndex.hpp"
 
 class Region{
 private:
@@ -8,6 +9,7 @@ private:
     std::string regionName;
     std::string partition_expr;
     std::shared_ptr<SST> current_sst; // stay in memory util drop region
+    std::shared_ptr<Index> current_index; // stay in memory util drop region
     std::unordered_map<std::string, std::string> attrs; // memtable threshold, sst path, column names, etc.
     std::shared_ptr<Memtable> current_memtable;
 public:
@@ -17,6 +19,7 @@ public:
         this->partition_expr = partition_expr;
         this->current_memtable = nullptr;
         this->current_sst = nullptr;
+        this->current_index = nullptr;
         this->attrs = attrs;
     }
     ~Region()=default;
@@ -47,5 +50,11 @@ public:
     }
     std::shared_ptr<SST> getSST() const{
         return this->current_sst;
+    }
+    void setIndex(std::shared_ptr<Index> index){
+        this->current_index = index;
+    }
+    std::shared_ptr<Index> getIndex() const{
+        return this->current_index;
     }
 };

@@ -216,3 +216,46 @@ public:
         return ret;
     }
 };
+
+class Index{
+private:
+    u_int64_t regionID;
+    std::vector<IndexBlockMeta> region_metas;
+    std::string dataPath;
+    std::string logPath;
+    std::ofstream logFile;
+public:
+    Index(u_int64_t regionID, std::string dataPath, std::string logPath):regionID(regionID),dataPath(dataPath),logPath(logPath){
+        // this->region_sst_metas = std::unordered_map<u_int64_t, std::vector<SSTBlockMeta>>();
+        this->region_metas = std::vector<IndexBlockMeta>();
+        this->logFile.open(this->logPath + "/index.log", std::ios::app);
+        if(!this->logFile.is_open()){
+            throw std::runtime_error("Failed to open index log file");
+        }
+        this->log("Create index for region " + std::to_string(regionID));
+    }
+    ~Index(){
+        this->region_metas.clear();
+        if(this->logFile.is_open()){
+            this->logFile.close();
+        }
+    }
+    void appendMemtable(std::shared_ptr<Memtable> memtable, u_int64_t start_time, u_int64_t end_time, u_int64_t regionID){
+        std::string fileName = "index_" + std::to_string(regionID) + ".idx";
+        IndexBlockMeta meta(dataPath, fileName, 0, start_time, end_time);
+        try{
+            meta.flushBlock(memtable);
+        } catch (const std::runtime_error& e){
+            throw e;
+        }
+        this->log(meta.Log());
+        // meta.deleteCache();
+        this->region_metas.push_back(meta);
+    }
+    void log(const std::string& message){
+        std::string log_message = "[Index] " + message;
+        if(this->logFile.is_open()){
+            this->logFile << log_message << std::endl;
+        }
+    }
+};

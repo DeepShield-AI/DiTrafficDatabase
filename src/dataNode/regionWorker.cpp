@@ -54,6 +54,7 @@ void RegionWorker::handleWrite(WriteRequest& request, u_int64_t regionID, u_int6
 
     if(this->checkRegionMemUsage(regionID) + rowSize.fixed_size + rowSize.var_size > std::stoull(this->regions[regionID]->getAtrr("memTableUsageThreshold"))){
         this->sendFlushSignal(regionID);
+        this->sendIndexerSignal(regionID);
     }
     this->regions[regionID]->getMemtable()->write(request.timestamp, fields);
     this->regions[regionID]->getMemtable()->addRowSize(rowSize);
@@ -93,6 +94,8 @@ void RegionWorker::handleStatus(RegionAdminRequest& request, u_int64_t regionID,
         );
         std::shared_ptr<SST> sst = std::make_shared<SST>(regionID,newRegion->getAtrr("sstPath"),this->path());
         newRegion->setSST(sst);
+        std::shared_ptr<Index> index = std::make_shared<Index>(regionID,newRegion->getAtrr("indexPath"),this->path());
+        newRegion->setIndex(index);
         this->closedRegions[regionID] = std::move(newRegion);
         this->log("[Request " + std::to_string(requestID) + "]Created region " + std::to_string(regionID));
     } else if(request.op == RegionOperation::OPEN){
@@ -128,6 +131,7 @@ void RegionWorker::handleStatus(RegionAdminRequest& request, u_int64_t regionID,
         auto memtable = this->regions[regionID]->getMemtable();
         if(memtable != nullptr && memtable->getRowCount() > 0){
             this->sendFlushSignal(regionID);
+            this->sendIndexerSignal(regionID);
         }
         this->regions[regionID]->setMemtable(nullptr);
         this->closedRegions[regionID] = std::move(this->regions[regionID]);
@@ -186,6 +190,36 @@ void RegionWorker::sendFlushSignal(u_int64_t regionID){
     this->log("Sent flush signal for region " + std::to_string(regionID));
 }
 
+void RegionWorker::sendIndexerSignal(u_int64_t regionID){
+    auto region = this->regions.find(regionID);
+    if(region == this->regions.end()){
+        this->log("Region " + std::to_string(regionID) + " not found for flush signal.");
+        return;
+    }
+    auto memtable = region->second->getMemtable();
+    if (memtable == nullptr){
+        this->log("Region " + std::to_string(regionID) + " has no memtable to flush.");
+        return;
+    }
+    auto index = region->second->getIndex();
+    if (index == nullptr){
+        this->log("Region " + std::to_string(regionID) + " has no index to build to.");
+        return;
+    }
+    memtable->freeze();
+    std::shared_ptr<Memtable> newMemtable = std::make_shared<Memtable>(memtable->getColumnNames());
+    region->second->setMemtable(newMemtable);
+    IndexSignal* signal = new IndexSignal{
+        .regionID = regionID,
+        .startTime = memtable->getMinTime(),
+        .endTime = memtable->getMaxTime(),
+        .memtable = memtable,
+        .index = index,
+    };
+    this->indexerPipe->put((void*)signal);
+    this->log("Sent index signal for region " + std::to_string(regionID));
+}
+
 void RegionWorker::handleSignal(WorkSignal* signal){
     u_int64_t regionID = signal->regionID;
     Request& request = signal->request;
@@ -227,6 +261,7 @@ void RegionWorker::handleSignal(WorkSignal* signal){
 void RegionWorker::init(DataNodeContext& cfg){
     this->enginePipe = cfg.engineWorkerPipes[this->id()];
     this->flusherPipe = cfg.workerFlusherPipe;
+    this->indexerPipe = cfg.workerIndexerPipe;
     // this->memTableUsageThreshold = cfg.memTableUsageThreshold;
     this->log("init.");
 }

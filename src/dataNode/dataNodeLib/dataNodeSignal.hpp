@@ -1,6 +1,7 @@
 #pragma once
 #include "dataNodeComponent.hpp"
 #include "request.hpp"
+#include "index/invertedIndex.hpp"
 
 struct MitoSignal{
     u_int64_t regionID;
@@ -18,4 +19,12 @@ struct FlushSignal{
     u_int64_t endTime;
     std::shared_ptr<Memtable> memtable;
     std::shared_ptr<SST> sst;
+};
+
+struct IndexSignal{
+    u_int64_t regionID;
+    u_int64_t startTime;
+    u_int64_t endTime;
+    std::shared_ptr<Memtable> memtable;
+    std::shared_ptr<Index> index;
 };

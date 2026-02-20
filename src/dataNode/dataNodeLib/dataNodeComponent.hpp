@@ -11,6 +11,7 @@
 struct DataNodeContext{
     PipeRing* serverEnginePipe;
     PipeRing* workerFlusherPipe;
+    PipeRing* workerIndexerPipe;
     u_int64_t workerCount;
     PipeRing** engineWorkerPipes;
     std::istream* in;
