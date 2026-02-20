@@ -80,7 +80,7 @@ public:
 };
 
 struct TempTrieNode {
-    std::unordered_map<char, TempTrieNode*> children;
+    std::unordered_map<char, std::unique_ptr<TempTrieNode>> children;
     std::vector<RowId> values;
 };
 
@@ -90,10 +90,11 @@ private:
     void insert(TempTrieNode* root,const std::string& key,RowId row_id){
         TempTrieNode* node = root;
         for (char c : key) {
-            if (!node->children.count(c)) {
-                node->children[c] = new TempTrieNode();
+            auto& child = node->children[c];
+            if (!child) {
+                child = std::make_unique<TempTrieNode>();
             }
-            node = node->children[c];
+            node = child.get();
         }
         node->values.push_back(row_id);
     }
@@ -137,7 +138,7 @@ private:
 
         for (auto& [ch, child] : node->children) {
             nodes[node_cursor].ch = ch;
-            flatten(child, nodes, node_cursor,buffer, value_offset);
+            flatten(child.get(), nodes, node_cursor,buffer, value_offset);
         }
 
         return current;
@@ -147,7 +148,7 @@ public:
     std::unique_ptr<InvertedIndexBlock> build(std::shared_ptr<Memtable> memtable,const std::string& column_name) override{
         auto table = memtable->getTable();
         auto column_id = memtable->getColumnId(column_name);
-        TempTrieNode* root = new TempTrieNode();
+        TempTrieNode* root = std::make_unique<TempTrieNode>();
 
         RowId row_id = 0;
         for (auto& row : table) {
