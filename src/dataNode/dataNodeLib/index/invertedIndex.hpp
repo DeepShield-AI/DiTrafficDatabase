@@ -43,7 +43,7 @@ public:
     ValueType value_type() const { return static_cast<ValueType>(meta->valueType); }
     InvertedKind inverted_kind() const { return static_cast<InvertedKind>(meta->invertedKind); }
     virtual void lookup_raw(const void* key, std::vector<RowId>& result) const = 0;
-    virtual void build(std::shared_ptr<Memtable> memtable,const std::string& column_name) = 0;
+    // virtual void build(std::shared_ptr<Memtable> memtable,const std::string& column_name) = 0;
 };
 
 template<typename T>

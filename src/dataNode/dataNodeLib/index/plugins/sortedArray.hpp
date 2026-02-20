@@ -40,11 +40,11 @@ public:
         }
         this->entryNum = (buffer_size - sizeof(InvertedIndexBlock)) / sizeof(SortedArrayEntry(T));
     }
-    void build(std::shared_ptr<Memtable> memtable,const std::string& column_name) override{
+    void build(std::shared_ptr<Memtable> memtable,const std::string& column_name){
         auto table = memtable->getTable();
         auto column_id = memtable->getColumnId(column_name);
         u_int64_t row_id = 0;
-        for (auto row:table){
+        for (auto& row:table){
             T key = row.data[column_id];
             this->entries[row_id].key = key;
             this->entries[row_id].value = row_id;
