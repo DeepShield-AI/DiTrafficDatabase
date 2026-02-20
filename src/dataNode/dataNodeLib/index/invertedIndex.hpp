@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <functional>
 #include <stdexcept>
+#include <fstream>
 #include "../memtable.hpp"
 
 using RowId = u_int64_t;
@@ -37,10 +38,12 @@ public:
         : buffer(buffer),
           meta(reinterpret_cast<InvertedIndexBlockInfo*>(buffer)) {}
     virtual ~InvertedIndexBlock() = default;
+    const char* getBuffer() const {return this->buffer;}
     u_int64_t bytes() const { return meta->size; }
     ValueType value_type() const { return static_cast<ValueType>(meta->valueType); }
     InvertedKind inverted_kind() const { return static_cast<InvertedKind>(meta->invertedKind); }
     virtual void lookup_raw(const void* key, std::vector<RowId>& result) const = 0;
+    virtual void build(std::shared_ptr<Memtable> memtable,const std::string& column_name) = 0;
 };
 
 template<typename T>
@@ -54,15 +57,12 @@ template<> struct ValueTypeTrait<std::string> { static constexpr ValueType type 
 template<typename T>
 class TypedInvertedIndexBlock : public InvertedIndexBlock {
 protected:
-    TypedInvertedIndexBlock(u_int64_t buffer_size, InvertedKind kind)
-        : InvertedIndexBlock(buffer_size)
-    {
+    TypedInvertedIndexBlock(u_int64_t buffer_size, InvertedKind kind): InvertedIndexBlock(buffer_size){
         meta->valueType = static_cast<u_int64_t>(ValueTypeTrait<T>::type);
         meta->invertedKind = static_cast<u_int64_t>(kind);
     }
 
-    explicit TypedInvertedIndexBlock(char* buffer)
-        : InvertedIndexBlock(buffer) {}
+    explicit TypedInvertedIndexBlock(char* buffer): InvertedIndexBlock(buffer) {}
 
     const T& key_cast(const void* key) const {
         return *reinterpret_cast<const T*>(key);
@@ -97,15 +97,97 @@ private:
 public:
     IndexBlockMeta(const std::string& folder, const std::string& name, u_int64_t offset,u_int64_t start,u_int64_t end)
         : file_folder(folder),file_name(name),file_offset(offset),start_time(start),end_time(end),stored(false) {}
-    std::unique_ptr<InvertedIndexBlock> loadBlock(std::string colunmName){
-
-    }
     void flushBlock(std::shared_ptr<Memtable> memtable){
         if(this->stored){
             throw std::runtime_error("Block already stored to disk");
         }
-        
+        std::string fullPath = this->file_folder + "/" + this->file_name;
+
+        std::ofstream out(fullPath, std::ios::binary | std::ios::app);
+
+        if (!out.is_open()) {
+            throw std::runtime_error("Cannot open file");
+        }
+
+        u_int64_t current_offset = this->file_offset;
+
+        auto column_names = memtable->getColumnNames();
+        auto table = memtable->getTable();
+        auto row_count = table.size();
+        auto col_count = column_names.size();
+
+        for(auto [col_name, col_type] : column_names) {
+            InvertedKind kind = InvertedKind::SORTED_ARRAY;
+            if(col_type == ValueType::UINT64){
+                InvertedKind kind = InvertedKind::SORTED_ARRAY;
+            } else if(col_type == ValueType::INT64){
+                InvertedKind kind = InvertedKind::SORTED_ARRAY;
+            } else if(col_type == ValueType::DOUBLE){
+                InvertedKind kind = InvertedKind::SORTED_ARRAY;
+            } else if(col_type == ValueType::STRING){
+                InvertedKind kind = InvertedKind::TRIE;
+            } else {
+                throw std::invalid_argument("Unknown column type");
+            }
+
+            auto builder = InvertedIndexBuilderRegistry::instance().create(col_type, kind);
+            
+            auto block = builder->build(memtable, col_name);
+            out.write(block->getBuffer(),block->bytes());
+            this->column_index_offset[col_name] =current_offset;
+            current_offset += block->bytes();
+        }
+
+        out.close();
+        this->stored = true;
     }
+    std::shared_ptr<InvertedIndexBlock> IndexBlockMeta::loadBlock(std::string columnName){
+        // 缓存命中
+        auto it_cache = column_index_cache.find(columnName);
+        if (it_cache == column_index_cache.end()){
+            throw std::invalid_argument("Unknown column name");
+        }
+        if (it_cache->second != nullptr) {
+            return it_cache->second;
+        }
+
+        auto it = column_index_offset.find(columnName);
+        if (it == column_index_offset.end()) {
+            throw std::runtime_error("Column index not found");
+        }
+
+        u_int64_t offset = it->second;
+
+        std::string file_path = this->file_folder + "/" + this->file_name;
+
+        std::ifstream in(file_path,std::ios::binary);
+
+        if (!in.is_open()) {
+            throw std::runtime_error("Cannot open file");
+        }
+
+        in.seekg(offset);
+
+        InvertedIndexBlockInfo meta;
+        in.read(reinterpret_cast<char*>(&meta),sizeof(meta));
+
+        // 2️⃣ 读取完整 block
+        char* buffer = new char[meta.size];
+
+        in.seekg(offset);
+        in.read(buffer, meta.size);
+
+        in.close();
+
+        // 3️⃣ 调用 loader
+        auto block = InvertedIndexLoaderRegistry::instance().create(static_cast<ValueType>(meta.valueType),static_cast<InvertedKind>(meta.invertedKind),buffer);
+
+        // 4️⃣ 缓存
+        column_index_cache[columnName] =std::shared_ptr<InvertedIndexBlock>(block.release());
+
+        return std::shared_ptr<InvertedIndexBlock>(column_index_cache[columnName].get());
+    }
+
     void deleteCache(){
         for(auto it:this->column_index_cache){
             if(it.second != nullptr){

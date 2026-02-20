@@ -124,6 +124,7 @@ private:
     std::vector<Row> table;
     // std::unordered_map<KeySeries, ColumnarSeries, KeySeriesHash> table;
     std::unordered_map<std::string, ColumnType> column_names;
+    std::unordered_map<std::string, u_int64_t> column_ids;
     u_int64_t column_name_size;
     bool mut;
     u_int64_t var_data_size;
@@ -134,6 +135,12 @@ public:
     Memtable(std::unordered_map<std::string, ColumnType> column_names){
         this->table = std::vector<Row>();
         this->column_names = column_names;
+        this->column_ids = std::unordered_map<std::string, u_int64_t>();
+        u_int64_t id = 0;
+        for(auto [col_name, col_type]:column_names){
+            this->column_ids[col_name] = id;
+            id ++;
+        }
         this->column_name_size = 0;
         this->var_data_size = 0;
         for (const auto& [name, _] : column_names){
@@ -218,6 +225,13 @@ public:
     }
     const std::unordered_map<std::string, ColumnType>& getColumnNames() const{
         return this->column_names;
+    }
+    u_int64_t getColumnId(std::string name)const {
+        auto id = this->column_ids.find(name);
+        if(id == this->column_ids.end()){
+            throw std::runtime_error("Error column name");
+        }
+        return id->second;
     }
     u_int64_t getMinTime() const {
         return this->min_time;

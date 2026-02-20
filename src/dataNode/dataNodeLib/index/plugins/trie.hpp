@@ -24,8 +24,7 @@ public:
 template<typename T>
 class TrieIndexBuilder: public InvertedIndexBuilder{
 public:
-    std::unique_ptr<InvertedIndexBlock>
-    build(std::shared_ptr<Memtable> memtable,const std::string& column_name) override{
+    std::unique_ptr<InvertedIndexBlock> build(std::shared_ptr<Memtable> memtable,const std::string& column_name) override{
         // 1️⃣ 从 memtable 提取列数据
 
         // 2️⃣ 构建索引内部结构
