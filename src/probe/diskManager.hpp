@@ -1,0 +1,75 @@
+#pragma once
+#include <vector>
+#include <atomic>
+#include "probeLib/probeComponent.hpp"
+
+class DiskManager {
+private:
+    // const std::string disk_name;
+    const u_int64_t disk_size;
+    const u_int64_t block_size;
+    const u_int64_t block_num;
+    // int disk_fd;
+    // u_int32_t threadID;
+    // u_int32_t rss_count;
+    // u_int32_t ring_depth;
+    // u_int32_t ring_idle_time;
+
+    // std::vector<MemoryBuffer*> buffers;
+    // PointerRingBuffer* block_ring;
+    // DataBlockBuffer* block_buffer;
+    void* block_buffer;
+    AgentType agent_type;
+
+    std::vector<DiskAgent*> agents;
+    DiskBuffer* disk_buffer;
+    // u_int32_t* last_rss_id_positions;
+
+    // std::vector<u_int32_t> checkID;
+    
+    u_int64_t writePos;
+    std::atomic_bool stop;
+    u_int64_t thread_id;
+
+    bool bind_core;
+    u_int32_t core_id;
+
+    // u_int32_t testID;
+    void addBlock(void* block);
+    void bindCore();
+    void runData();
+    void runIndex();
+public:
+    DiskManager(u_int64_t disk_size, u_int64_t block_size, void* block_buffer, AgentType agent_type, DiskBuffer* disk_buffer):
+        disk_size(disk_size),block_size(block_size),block_num(disk_size/block_size),block_buffer(block_buffer),agent_type(agent_type),disk_buffer(disk_buffer){
+        // this->disk_fd = open(this->disk_name.c_str(), O_DIRECT | O_RDWR);
+        // if (this->disk_fd < 0) {
+        //     printf("Disk manager error: failed to open disk %s!\n", this->disk_name.c_str());
+        //     throw std::runtime_error("Disk open failed");
+        // }
+        // for(u_int32_t i = 0; i < agents_num; ++i) {
+        //     DiskAgent* agent = new DiskAgent(disk_size, block_size, disk_fd, ring_depth, ring_idle_time);
+        //     this->agents.push_back(agent);
+        // }
+        this->agents = std::vector<DiskAgent*>();
+        this->writePos = 0;
+        this->stop = true;
+
+        this->bind_core = false;
+        this->core_id = 0;
+        if (this->agent_type == AgentType::DATA_AGENT){
+            this->thread_id = ((DataBlockBuffer*)(this->block_buffer))->addCheckThread();
+        }else if (this->agent_type == AgentType::INDEX_AGENT){
+            this->thread_id = ((IndexBlockBuffer*)(this->block_buffer))->addCheckThread();
+        }else{
+            this->thread_id = std::numeric_limits<uint64_t>::max();
+        }
+        // this->thread_id = std::numeric_limits<uint64_t>::max();
+    }
+    ~DiskManager() = default;
+    void addAgent(DiskAgent* agent);
+    void setBindCore(u_int32_t core_id);
+    void setThreadID(u_int64_t thread_id);
+    int run();
+    void asynchronousStop();
+};
